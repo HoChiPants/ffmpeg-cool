@@ -1,0 +1,54 @@
+Add code to ffmpeg to 'register' the .cool format.  You cannot just add source code files; you need to tell ffmpeg that a new codec exists.  These changes are what 'hook' your codec into ffmpeg.  (We will make these exact changes in our test version of ffmpeg.)
+
+Add "AV_CODEC_ID_COOL" to "enum AVCodecID{}" in ffmpeg/libavcodec/avcodec.h.  This creates an integer constant that is associated with your codec.  The following three lines show where we will declare the codec for testing:
+
+    AV_CODEC_ID_MAD,    
+    AV_CODEC_ID_COOL,  /* Our codec ID tag is now bound to some integer, integer value unknown */   
+    AV_CODEC_ID_FRWU,
+Add "{ AV_CODEC_ID_COOL, "cool" }," as the second to last array entry in "const IdStrMap ff_img_tags[]" in ffmpeg/libavformat/img2.c.  This assigns a string identifier to the .cool codec.  It is unclear how this identifier is used, but I suspect it registers an extension for automatically calling your code that decodes .cool files. 
+
+In libavformat/img2enc.c, find the structure definition "AVOutputFormat ff_image2_muxer = ...", and in the ".extensions" section, merge "cool" into it.  This tells ffmpeg to use the img2 muxer during the process of encoding .cool files.  (This indicates that the img2 muxer should be used during encoding of .cool files, and the muxer will automatically call your code that encodes .cool files.)
+
+Add the following into libavcodec/allcodecs.c. 
+
+extern AVCodec ff_cool_encoder;
+extern AVCodec ff_cool_decoder;
+Place these declarations with similar ones near the start of the file.  These declarations are used by functions in this file to connect codec identifiers to each other.  These are the identifiers you'll need when you edit your codec structs.
+
+Add the following codec descriptor to to the codec_descriptors array in ffmpeg/libavcodec/codec_desc.c.  These descriptors must be in the same order as the ID declarations, so place it after the descriptor struct for AV_CODEC_ID_MAD:
+
+    { /* COOL description */
+        .id        = AV_CODEC_ID_COOL,
+        .type      = AVMEDIA_TYPE_VIDEO,
+        .name      = "cool",
+        .long_name = NULL_IF_CONFIG_SMALL("COOL image (CS 3505 Spring 2019)"),
+        .props     = AV_CODEC_PROP_LOSSY,
+    },
+All the above changes will cause ffmpeg to use your codec, but you haven't added one yet, and you haven't modified the makefile yet.  (Don't build yet.)  In addition, ffmpeg now knows there is a video codec named "cool", but it doesn't know anything about it.
+
+Modify the makefile so that it will build your codec.  Your codec will consist of "cooldec.c", "coolenc.c", and any other 'cool' files you want to add (up to ten).  You need to modify the makefile so that these files will be compiled when needed:
+
+Edit ffmpeg/libavcodec/Makefile.  Find the section in the makefile labeled decoders/encoders...  In that section, find an appropriate spot and add the following lines of code:
+
+OBJS-$(CONFIG_COOL_DECODER)   += cooldec.o
+OBJS-$(CONFIG_COOL_ENCODER)   += coolenc.o
+You are editing a makefile, so spacing and tabs matter.  (The above text does not have any leading spaces, and no tab characters.  Don't add blank lines.)
+
+If you add any additional files to ffmpeg for your codec, make sure they exist within ffmpeg/libavcodec, that their name starts with "cool", and that you modify the above lines to require that object files be built from your .c files (as needed).  If you look at the Makefile rules for the other codecs, you can see how multiple files are specified as requirements for that codec.
+
+Create the source code files for your codec.  Place your decoder in "cooldec.c" and your encoder in "coolenc.c".  If you have definitions that are needed in both files, place them in "cool.h".
+
+It is up to you to create and test these codec files.  See the hints below.  Don't build until you have these two files in place.  Then, come back and complete these steps.
+
+Reconfigure and rebuild your project.  Any time you change the makefile or add additional .c or .h files, you will need to reconfigure and rebuild your project.  If you only edit .c or .h files, you can simply re-make your project.
+
+Did you reconfigure?  If not, make sure to do so.  The instructions are linked here.
+
+Testing your codec:
+
+To convert an image:
+
+  ffmpeg -i image.bmp image.cool
+To display an image:
+
+ ffplay image.cool
